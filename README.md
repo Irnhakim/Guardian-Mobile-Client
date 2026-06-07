@@ -2,6 +2,9 @@
 
 The Android background tracking application for the **Guardian Parental Control System**. Built natively using Kotlin and Jetpack Compose, this app runs silently on the child's device, capturing activities and syncing them to the NestJS parent server.
 
+> [!IMPORTANT]
+> **Interdependency Note**: This project requires a running instance of the [Guardian Admin Server](https://github.com/Irnhakim/Guardian-Admin-Server) in order to submit API payloads, rotate access tokens, and establish real-time WebSocket communication.
+
 GitHub Repository: [https://github.com/Irnhakim/Guardian-Mobile-Client](https://github.com/Irnhakim/Guardian-Mobile-Client)
 
 ---
