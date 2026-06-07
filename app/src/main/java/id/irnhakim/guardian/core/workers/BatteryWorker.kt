@@ -63,7 +63,7 @@ class BatteryWorker @AssistedInject constructor(
 
         fun schedule(context: Context) {
             val request = PeriodicWorkRequestBuilder<BatteryWorker>(
-                15, TimeUnit.MINUTES
+                30, TimeUnit.MINUTES
             )
                 .setConstraints(
                     Constraints.Builder()

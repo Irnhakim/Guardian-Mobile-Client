@@ -54,7 +54,7 @@ class LocationForegroundService : Service() {
     private fun startLocationUpdates() {
         val request = GmsLocationRequest.Builder(
             Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-            15 * 60 * 1000L // 15 minutes
+            30 * 60 * 1000L // 30 minutes
         )
             .setMinUpdateIntervalMillis(60 * 1000L)
             .setWaitForAccurateLocation(false)
