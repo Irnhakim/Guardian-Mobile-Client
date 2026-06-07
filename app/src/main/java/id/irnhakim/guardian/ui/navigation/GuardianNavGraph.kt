@@ -18,6 +18,14 @@ fun GuardianNavGraph() {
     val viewModel: MainViewModel = hiltViewModel()
     val isRegistered by viewModel.isRegistered.collectAsState()
 
+    LaunchedEffect(isRegistered) {
+        if (!isRegistered) {
+            navController.navigate(Screen.Setup.route) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
+
     val startDest = if (isRegistered) Screen.Home.route else Screen.Setup.route
 
     NavHost(navController = navController, startDestination = startDest) {

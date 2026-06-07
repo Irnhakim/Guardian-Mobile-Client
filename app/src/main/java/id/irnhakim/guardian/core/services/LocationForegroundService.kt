@@ -46,7 +46,7 @@ class LocationForegroundService : Service() {
         serviceScope.launch {
             val serverUrl = preferences.getServerUrlSync() ?: return@launch
             val deviceId = preferences.getServerDeviceIdSync() ?: return@launch
-            socketManager = GuardianSocketManager(this@LocationForegroundService, serverUrl, deviceId)
+            socketManager = GuardianSocketManager(this@LocationForegroundService, serverUrl, deviceId, preferences)
             socketManager?.connect()
         }
     }

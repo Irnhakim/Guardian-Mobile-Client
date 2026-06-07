@@ -105,6 +105,11 @@ object AppModule {
                         }
                     }
                 }
+                if (response.code == 404 && finalRequest.url.encodedPath.contains("/devices/")) {
+                    runBlocking {
+                        preferences.clear()
+                    }
+                }
                 response
             }
             .addInterceptor(

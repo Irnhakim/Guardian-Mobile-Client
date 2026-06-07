@@ -41,6 +41,12 @@ class MainActivity : ComponentActivity() {
                     val workManager = WorkManager.getInstance(this@MainActivity)
                     workManager.enqueue(OneTimeWorkRequestBuilder<BatteryWorker>().build())
                     workManager.enqueue(OneTimeWorkRequestBuilder<AppSyncWorker>().build())
+                } else {
+                    // Stop foreground services and cancel periodic tasks if device deleted
+                    LocationForegroundService.stop(this@MainActivity)
+                    val workManager = WorkManager.getInstance(this@MainActivity)
+                    workManager.cancelUniqueWork(BatteryWorker.WORK_NAME)
+                    workManager.cancelUniqueWork(AppSyncWorker.WORK_NAME)
                 }
             }
         }

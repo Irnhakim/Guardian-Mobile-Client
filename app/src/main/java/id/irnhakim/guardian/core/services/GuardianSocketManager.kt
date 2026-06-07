@@ -8,11 +8,17 @@ import id.irnhakim.guardian.core.workers.AppSyncWorker
 import id.irnhakim.guardian.core.workers.BatteryWorker
 import io.socket.client.IO
 import io.socket.client.Socket
+import id.irnhakim.guardian.data.local.GuardianPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-class GuardianSocketManager(private val context: Context, private val serverUrl: String, private val deviceId: String) {
+class GuardianSocketManager(
+    private val context: Context,
+    private val serverUrl: String,
+    private val deviceId: String,
+    private val preferences: GuardianPreferences
+) {
 
     private var socket: Socket? = null
 
@@ -42,6 +48,11 @@ class GuardianSocketManager(private val context: Context, private val serverUrl:
                 triggerSync()
             }
 
+            socket?.on("device:deleted") {
+                Log.d("GuardianSocket", "Device was deleted from parent dashboard! Resetting app preferences...")
+                resetApp()
+            }
+
             socket?.on(Socket.EVENT_DISCONNECT) {
                 Log.d("GuardianSocket", "Disconnected from Guardian WebSocket")
             }
@@ -59,6 +70,12 @@ class GuardianSocketManager(private val context: Context, private val serverUrl:
         
         // Also force a location update if location service is running
         LocationForegroundService.start(context)
+    }
+
+    private fun resetApp() {
+        CoroutineScope(Dispatchers.IO).launch {
+            preferences.clear()
+        }
     }
 
     fun disconnect() {
