@@ -10,8 +10,11 @@ import dagger.hilt.components.SingletonComponent
 import id.irnhakim.guardian.BuildConfig
 import id.irnhakim.guardian.data.local.GuardianPreferences
 import id.irnhakim.guardian.data.remote.api.GuardianApi
+import kotlinx.coroutines.runBlocking
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -51,7 +54,58 @@ object AppModule {
                         .addHeader("Authorization", "Bearer $token")
                         .build()
                 } else newRequest
-                chain.proceed(finalRequest)
+
+                var response = chain.proceed(finalRequest)
+
+                if (response.code == 401 && !token.isNullOrEmpty()) {
+                    synchronized(this) {
+                        val currentToken = preferences.getAccessTokenSync()
+                        if (currentToken != token) {
+                            response.close()
+                            val retryRequest = newRequest.newBuilder()
+                                .addHeader("Authorization", "Bearer $currentToken")
+                                .build()
+                            return@addInterceptor chain.proceed(retryRequest)
+                        }
+
+                        val refreshToken = preferences.getRefreshTokenSync()
+                        if (!refreshToken.isNullOrEmpty() && !serverUrl.isNullOrEmpty()) {
+                            val refreshClient = OkHttpClient.Builder()
+                                .connectTimeout(10, TimeUnit.SECONDS)
+                                .build()
+
+                            val mediaType = "application/json; charset=utf-8".toMediaTypeOrNull()
+                            val refreshBody = "{\"refreshToken\":\"$refreshToken\"}".toRequestBody(mediaType)
+                            val refreshRequest = okhttp3.Request.Builder()
+                                .url(serverUrl.replace("/api/v1", "") + "/api/v1/auth/refresh")
+                                .post(refreshBody)
+                                .build()
+
+                            try {
+                                val refreshResponse = refreshClient.newCall(refreshRequest).execute()
+                                if (refreshResponse.isSuccessful) {
+                                    val bodyString = refreshResponse.body?.string()
+                                    val json = com.google.gson.JsonParser.parseString(bodyString).asJsonObject
+                                    val newAccess = json.get("accessToken").asString
+                                    val newRefresh = json.get("refreshToken").asString
+
+                                    runBlocking {
+                                        preferences.saveTokens(newAccess, newRefresh)
+                                    }
+
+                                    response.close()
+                                    val retryRequest = newRequest.newBuilder()
+                                        .addHeader("Authorization", "Bearer $newAccess")
+                                        .build()
+                                    response = chain.proceed(retryRequest)
+                                }
+                            } catch (e: Exception) {
+                                // Ignore
+                            }
+                        }
+                    }
+                }
+                response
             }
             .addInterceptor(
                 HttpLoggingInterceptor().apply {

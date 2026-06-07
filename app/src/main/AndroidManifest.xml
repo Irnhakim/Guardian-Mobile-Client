@@ -50,6 +50,12 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="28">
 
+        <!-- Disable default WorkManager Initialization -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            tools:node="remove" />
+
         <!-- Main Activity -->
         <activity
             android:name=".ui.MainActivity"

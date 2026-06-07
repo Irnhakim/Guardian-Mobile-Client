@@ -32,6 +32,7 @@ class GuardianPreferences @Inject constructor(
     val serverUrl: Flow<String?> = dataStore.data.map { it[KEY_SERVER_URL] }
 
     fun getAccessTokenSync(): String? = runBlocking { dataStore.data.first()[KEY_ACCESS_TOKEN] }
+    fun getRefreshTokenSync(): String? = runBlocking { dataStore.data.first()[KEY_REFRESH_TOKEN] }
     fun getDeviceIdSync(): String? = runBlocking { dataStore.data.first()[KEY_DEVICE_ID] }
     fun getServerDeviceIdSync(): String? = runBlocking { dataStore.data.first()[KEY_SERVER_DEVICE_ID] }
     fun getServerUrlSync(): String? = runBlocking { dataStore.data.first()[KEY_SERVER_URL] }
