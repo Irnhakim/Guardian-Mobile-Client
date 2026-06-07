@@ -40,4 +40,10 @@ interface GuardianApi {
         @Path("deviceId") deviceId: String,
         @Body request: SyncUsageRequest,
     ): Response<Unit>
+
+    @POST("devices/{deviceId}/notifications")
+    suspend fun submitNotification(
+        @Path("deviceId") deviceId: String,
+        @Body request: NotificationRequest,
+    ): Response<Unit>
 }

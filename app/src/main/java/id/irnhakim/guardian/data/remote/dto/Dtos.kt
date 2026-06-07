@@ -94,3 +94,13 @@ data class AppUsageDto(
 data class SyncUsageRequest(
     val usages: List<AppUsageDto>,
 )
+
+// ── Notifications ──────────────────────────────────────────────
+
+data class NotificationRequest(
+    val packageName: String,
+    val appName: String,
+    val title: String? = null,
+    val text: String? = null,
+    val category: String? = null,
+)

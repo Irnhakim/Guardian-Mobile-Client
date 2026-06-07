@@ -44,16 +44,19 @@ fun HomeScreen() {
     var hasLocation by remember { mutableStateOf(hasLocationPermission(context)) }
     var hasUsageStats by remember { mutableStateOf(hasUsageStatsPermission(context)) }
     var hasNotification by remember { mutableStateOf(hasNotificationPermission(context)) }
+    var hasNotificationAccess by remember { mutableStateOf(isNotificationListenerEnabled(context)) }
 
     // Helper to refresh all permissions and run workers if they were newly granted
     val checkAndSync = {
         val loc = hasLocationPermission(context)
         val usage = hasUsageStatsPermission(context)
         val notif = hasNotificationPermission(context)
+        val notifAccess = isNotificationListenerEnabled(context)
 
         hasLocation = loc
         hasUsageStats = usage
         hasNotification = notif
+        hasNotificationAccess = notifAccess
 
         // If newly granted or registered, ensure foreground service and workers are scheduled/running
         if (loc) {
@@ -146,13 +149,16 @@ fun HomeScreen() {
             StatusRow(label = "Battery Monitoring", active = true) // Battery check does not require special runtime permission
             Spacer(Modifier.height(8.dp))
             StatusRow(label = "App & Usage Monitoring", active = hasUsageStats)
+            Spacer(Modifier.height(8.dp))
+            StatusRow(label = "Notification Access", active = hasNotificationAccess)
 
             // Permissions Guidance Panel
             val needsLocationPermission = !hasLocation
             val needsUsagePermission = !hasUsageStats
             val needsNotificationPermission = !hasNotification && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            val needsNotificationAccess = !hasNotificationAccess
 
-            if (needsLocationPermission || needsUsagePermission || needsNotificationPermission) {
+            if (needsLocationPermission || needsUsagePermission || needsNotificationPermission || needsNotificationAccess) {
                 Spacer(Modifier.height(32.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth(0.9f),
@@ -232,6 +238,21 @@ fun HomeScreen() {
                             ) {
                                 Text("Grant Notification Access", fontSize = 13.sp, color = Color.White)
                             }
+                            Spacer(Modifier.height(8.dp))
+                        }
+
+                        if (needsNotificationAccess) {
+                            Button(
+                                onClick = {
+                                    val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                                    context.startActivity(intent)
+                                },
+                                modifier = Modifier.fillMaxWidth().height(42.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5C7CFA))
+                            ) {
+                                Text("Grant Notification Listener Access", fontSize = 13.sp, color = Color.White)
+                            }
                         }
                     }
                 }
@@ -284,6 +305,21 @@ fun StatusRow(label: String, active: Boolean) {
 }
 
 // Helper permission checking functions
+private fun isNotificationListenerEnabled(context: Context): Boolean {
+    val pkgName = context.packageName
+    val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
+    if (!flat.isNullOrEmpty()) {
+        val names = flat.split(":")
+        for (name in names) {
+            val cn = android.content.ComponentName.unflattenFromString(name)
+            if (cn != null && pkgName == cn.packageName) {
+                return true
+            }
+        }
+    }
+    return false
+}
+
 private fun hasLocationPermission(context: Context): Boolean {
     return ContextCompat.checkSelfPermission(
         context,

@@ -82,7 +82,7 @@
             android:foregroundServiceType="dataSync" />
 
         <!-- Notification Listener (v2) -->
-        <!-- <service
+        <service
             android:name=".core.services.GuardianNotificationListener"
             android:exported="true"
             android:label="Guardian"
@@ -90,7 +90,7 @@
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
-        </service> -->
+        </service>
 
         <!-- Boot receiver -->
         <receiver
