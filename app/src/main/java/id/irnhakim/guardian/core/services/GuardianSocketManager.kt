@@ -12,6 +12,8 @@ import id.irnhakim.guardian.data.local.GuardianPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.json.JSONObject
+import android.provider.Settings
 
 class GuardianSocketManager(
     private val context: Context,
@@ -21,6 +23,7 @@ class GuardianSocketManager(
 ) {
 
     private var socket: Socket? = null
+    private val overlayManager = GuardianOverlayManager(context)
 
     fun connect() {
         if (socket?.connected() == true) return
@@ -51,6 +54,44 @@ class GuardianSocketManager(
             socket?.on("device:deleted") {
                 Log.d("GuardianSocket", "Device was deleted from parent dashboard! Resetting app preferences...")
                 resetApp()
+            }
+
+            socket?.on("approval:resolved") { args ->
+                try {
+                    val data = args?.firstOrNull() as? JSONObject
+                    if (data != null) {
+                        val packageName = data.optString("packageName")
+                        val status = data.optString("status")
+                        Log.d("GuardianSocket", "Approval resolved: $packageName -> $status")
+                        if (status == "APPROVED" && !packageName.isNullOrEmpty()) {
+                            CoroutineScope(Dispatchers.IO).launch {
+                                preferences.removeBlockedApp(packageName)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("GuardianSocket", "Error parsing approval:resolved payload", e)
+                }
+            }
+
+            socket?.on("device:message") { args ->
+                try {
+                    val data = args?.firstOrNull() as? JSONObject
+                    if (data != null) {
+                        val type = data.optString("type") ?: "MESSAGE"
+                        val message = data.optString("message") ?: ""
+                        val password = data.optString("password")
+                        Log.d("GuardianSocket", "Received device message command: $type, message: $message, password: $password")
+                        
+                        if (Settings.canDrawOverlays(context)) {
+                            overlayManager.showMessage(type, message, password)
+                        } else {
+                            id.irnhakim.guardian.ui.DeviceMessageActivity.start(context, type, message, password)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("GuardianSocket", "Error parsing device:message payload", e)
+                }
             }
 
             socket?.on(Socket.EVENT_DISCONNECT) {

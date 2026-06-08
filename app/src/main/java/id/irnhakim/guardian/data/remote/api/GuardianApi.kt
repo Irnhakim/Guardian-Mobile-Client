@@ -46,4 +46,15 @@ interface GuardianApi {
         @Path("deviceId") deviceId: String,
         @Body request: NotificationRequest,
     ): Response<Unit>
+
+    @POST("devices/{deviceId}/approvals")
+    suspend fun submitApproval(
+        @Path("deviceId") deviceId: String,
+        @Body request: CreateApprovalRequest,
+    ): Response<AppApprovalResponse>
+
+    @GET("devices/{deviceId}/approvals")
+    suspend fun getApprovals(
+        @Path("deviceId") deviceId: String,
+    ): Response<List<AppApprovalResponse>>
 }

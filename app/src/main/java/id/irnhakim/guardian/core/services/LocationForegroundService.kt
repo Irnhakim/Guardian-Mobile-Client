@@ -15,6 +15,13 @@ import id.irnhakim.guardian.data.remote.dto.LocationRequest as LocationDto
 import kotlinx.coroutines.*
 import javax.inject.Inject
 
+import id.irnhakim.guardian.ui.AppBlockActivity
+import android.app.usage.UsageStatsManager
+import java.util.TreeMap
+import id.irnhakim.guardian.core.receivers.AppInstallReceiver
+import android.content.IntentFilter
+import android.os.Build
+
 @AndroidEntryPoint
 class LocationForegroundService : Service() {
 
@@ -23,6 +30,8 @@ class LocationForegroundService : Service() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var monitorJob: Job? = null
+    private var appInstallReceiver: AppInstallReceiver? = null
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -41,6 +50,19 @@ class LocationForegroundService : Service() {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         startForeground(NOTIFICATION_ID, buildNotification())
         startLocationUpdates()
+        startAppBlockingMonitor()
+
+        // Register AppInstallReceiver dynamically
+        appInstallReceiver = AppInstallReceiver(api, preferences)
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED)
+            addDataScheme("package")
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(appInstallReceiver, filter, RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(appInstallReceiver, filter)
+        }
 
         // Initialize Socket connection
         serviceScope.launch {
@@ -115,11 +137,59 @@ class LocationForegroundService : Service() {
     override fun onDestroy() {
         fusedLocationClient.removeLocationUpdates(locationCallback)
         socketManager?.disconnect()
+        appInstallReceiver?.let { unregisterReceiver(it) }
         serviceScope.cancel()
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun startAppBlockingMonitor() {
+        monitorJob?.cancel()
+        monitorJob = serviceScope.launch {
+            while (isActive) {
+                try {
+                    val foregroundApp = getForegroundPackageName()
+                    if (foregroundApp != null) {
+                        val blockedApps = preferences.getBlockedAppsSync()
+                        if (blockedApps.contains(foregroundApp)) {
+                            val pm = packageManager
+                            val appLabel = try {
+                                val appInfo = pm.getApplicationInfo(foregroundApp, 0)
+                                pm.getApplicationLabel(appInfo).toString()
+                            } catch (e: Exception) {
+                                foregroundApp
+                            }
+                            AppBlockActivity.start(this@LocationForegroundService, foregroundApp, appLabel)
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Ignore and retry
+                }
+                delay(1000)
+            }
+        }
+    }
+
+    private fun getForegroundPackageName(): String? {
+        val usm = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return null
+        val time = System.currentTimeMillis()
+        val appList = usm.queryUsageStats(
+            UsageStatsManager.INTERVAL_DAILY,
+            time - 1000 * 60,
+            time
+        )
+        if (appList != null && appList.isNotEmpty()) {
+            val sortedMap = TreeMap<Long, android.app.usage.UsageStats>()
+            for (usageStats in appList) {
+                sortedMap[usageStats.lastTimeUsed] = usageStats
+            }
+            if (!sortedMap.isEmpty()) {
+                return sortedMap.lastKey()?.let { sortedMap[it]?.packageName }
+            }
+        }
+        return null
+    }
 
     companion object {
         private const val NOTIFICATION_ID = 1001

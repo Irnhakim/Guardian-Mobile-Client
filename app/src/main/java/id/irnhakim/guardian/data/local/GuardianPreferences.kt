@@ -23,6 +23,7 @@ class GuardianPreferences @Inject constructor(
         val KEY_PARENT_EMAIL = stringPreferencesKey("parent_email")
         val KEY_PARENT_PASSWORD = stringPreferencesKey("parent_password") // encrypted in production
         val KEY_SERVER_URL = stringPreferencesKey("server_url")
+        val KEY_BLOCKED_APPS = stringPreferencesKey("blocked_apps")
     }
 
     val accessToken: Flow<String?> = dataStore.data.map { it[KEY_ACCESS_TOKEN] }
@@ -30,6 +31,33 @@ class GuardianPreferences @Inject constructor(
     val deviceId: Flow<String?> = dataStore.data.map { it[KEY_DEVICE_ID] }
     val serverDeviceId: Flow<String?> = dataStore.data.map { it[KEY_SERVER_DEVICE_ID] }
     val serverUrl: Flow<String?> = dataStore.data.map { it[KEY_SERVER_URL] }
+    val blockedApps: Flow<Set<String>> = dataStore.data.map { prefs ->
+        val csv = prefs[KEY_BLOCKED_APPS] ?: ""
+        if (csv.isEmpty()) emptySet() else csv.split(",").toSet()
+    }
+
+    fun getBlockedAppsSync(): Set<String> = runBlocking {
+        val csv = dataStore.data.map { it[KEY_BLOCKED_APPS] }.first() ?: ""
+        if (csv.isEmpty()) emptySet() else csv.split(",").toSet()
+    }
+
+    suspend fun addBlockedApp(packageName: String) {
+        dataStore.edit { prefs ->
+            val current = prefs[KEY_BLOCKED_APPS] ?: ""
+            val set = if (current.isEmpty()) mutableSetOf() else current.split(",").toMutableSet()
+            set.add(packageName)
+            prefs[KEY_BLOCKED_APPS] = set.joinToString(",")
+        }
+    }
+
+    suspend fun removeBlockedApp(packageName: String) {
+        dataStore.edit { prefs ->
+            val current = prefs[KEY_BLOCKED_APPS] ?: ""
+            val set = if (current.isEmpty()) mutableSetOf() else current.split(",").toMutableSet()
+            set.remove(packageName)
+            prefs[KEY_BLOCKED_APPS] = set.joinToString(",")
+        }
+    }
 
     fun getAccessTokenSync(): String? = runBlocking { dataStore.data.first()[KEY_ACCESS_TOKEN] }
     fun getRefreshTokenSync(): String? = runBlocking { dataStore.data.first()[KEY_REFRESH_TOKEN] }

@@ -104,3 +104,22 @@ data class NotificationRequest(
     val text: String? = null,
     val category: String? = null,
 )
+
+// ── App Approvals ──────────────────────────────────────────────
+
+data class CreateApprovalRequest(
+    val packageName: String,
+    val appName: String,
+    val installer: String? = null,
+)
+
+data class AppApprovalResponse(
+    val id: String,
+    val deviceId: String,
+    val packageName: String,
+    val appName: String,
+    val installer: String? = null,
+    val status: String, // "PENDING", "APPROVED", "REJECTED"
+    val requestedAt: String,
+    val resolvedAt: String? = null,
+)

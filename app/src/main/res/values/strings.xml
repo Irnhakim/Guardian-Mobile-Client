@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Guardian</string>
+    <string name="device_admin_description">Melindungi aplikasi Guardian agar tidak dinonaktifkan atau dihapus tanpa persetujuan orang tua.</string>
+    <string name="accessibility_service_description">Mencegah penutupan paksa (force stop) atau penghapusan data aplikasi Guardian di menu Pengaturan.</string>
 </resources>
