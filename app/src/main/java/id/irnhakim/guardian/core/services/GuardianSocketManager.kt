@@ -1,14 +1,20 @@
 package id.irnhakim.guardian.core.services
 
 import android.content.Context
+import android.content.ComponentName
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.os.BatteryManager
 import android.util.Log
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import id.irnhakim.guardian.core.workers.AppSyncWorker
-import id.irnhakim.guardian.core.workers.BatteryWorker
 import io.socket.client.IO
 import io.socket.client.Socket
 import id.irnhakim.guardian.data.local.GuardianPreferences
+import id.irnhakim.guardian.data.remote.api.GuardianApi
+import id.irnhakim.guardian.data.remote.dto.BatteryRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -19,7 +25,8 @@ class GuardianSocketManager(
     private val context: Context,
     private val serverUrl: String,
     private val deviceId: String,
-    private val preferences: GuardianPreferences
+    private val preferences: GuardianPreferences,
+    private val api: GuardianApi,
 ) {
 
     private var socket: Socket? = null
@@ -94,6 +101,16 @@ class GuardianSocketManager(
                 }
             }
 
+            socket?.on("app:hide") {
+                Log.d("GuardianSocket", "Received app:hide — hiding Guardian from launcher")
+                setAppVisibility(false)
+            }
+
+            socket?.on("app:show") {
+                Log.d("GuardianSocket", "Received app:show — showing Guardian in launcher")
+                setAppVisibility(true)
+            }
+
             socket?.on(Socket.EVENT_DISCONNECT) {
                 Log.d("GuardianSocket", "Disconnected from Guardian WebSocket")
             }
@@ -106,9 +123,42 @@ class GuardianSocketManager(
 
     private fun triggerSync() {
         val workManager = WorkManager.getInstance(context)
-        workManager.enqueue(OneTimeWorkRequestBuilder<BatteryWorker>().build())
+        // Enqueue AppSync via WorkManager (heavy operation, ok to queue)
         workManager.enqueue(OneTimeWorkRequestBuilder<AppSyncWorker>().build())
-        
+
+        // Directly send battery data NOW (no WorkManager delay)
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+                val batteryStatus = context.registerReceiver(null, intentFilter) ?: return@launch
+
+                val level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                val scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+                val batteryPct = if (level >= 0 && scale > 0) (level * 100 / scale) else return@launch
+
+                val status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+                val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                        status == BatteryManager.BATTERY_STATUS_FULL
+                val rawTemp = batteryStatus.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1)
+                val temperature = if (rawTemp > 0) rawTemp / 10f else null
+                val voltage = batteryStatus.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1)
+                    .takeIf { it > 0 }
+
+                api.submitBattery(
+                    deviceId,
+                    BatteryRequest(
+                        level = batteryPct,
+                        isCharging = isCharging,
+                        temperature = temperature,
+                        voltage = voltage,
+                    )
+                )
+                Log.d("GuardianSocket", "Force sync battery: $batteryPct% charging=$isCharging")
+            } catch (e: Exception) {
+                Log.e("GuardianSocket", "Force sync battery failed", e)
+            }
+        }
+
         // Also force a location update if location service is running
         LocationForegroundService.start(context)
     }
@@ -116,6 +166,31 @@ class GuardianSocketManager(
     private fun resetApp() {
         CoroutineScope(Dispatchers.IO).launch {
             preferences.clear()
+        }
+    }
+
+    /**
+     * Hide or show the Guardian app icon in the device launcher.
+     * When hidden (visible=false), the app icon disappears from the app drawer.
+     * The background service (location tracking, socket) keeps running.
+     * The admin can show it again remotely via app:show socket event.
+     */
+    private fun setAppVisibility(visible: Boolean) {
+        try {
+            val pm = context.packageManager
+            val mainActivity = ComponentName(context, "id.irnhakim.guardian.ui.MainActivity")
+            val newState = if (visible)
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+            else
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+            pm.setComponentEnabledSetting(
+                mainActivity,
+                newState,
+                PackageManager.DONT_KILL_APP
+            )
+            Log.d("GuardianSocket", "App visibility set to: ${if (visible) "VISIBLE" else "HIDDEN"}")
+        } catch (e: Exception) {
+            Log.e("GuardianSocket", "Failed to set app visibility", e)
         }
     }
 

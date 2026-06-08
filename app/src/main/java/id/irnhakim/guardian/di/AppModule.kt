@@ -81,6 +81,7 @@ object AppModule {
                                 .post(refreshBody)
                                 .build()
 
+                            var refreshSuccess = false
                             try {
                                 val refreshResponse = refreshClient.newCall(refreshRequest).execute()
                                 if (refreshResponse.isSuccessful) {
@@ -98,9 +99,45 @@ object AppModule {
                                         .addHeader("Authorization", "Bearer $newAccess")
                                         .build()
                                     response = chain.proceed(retryRequest)
+                                    refreshSuccess = true
                                 }
                             } catch (e: Exception) {
                                 // Ignore
+                            }
+
+                            if (!refreshSuccess) {
+                                // Fallback: try logging in using stored parent credentials
+                                val credentials = runBlocking { preferences.getCredentials() }
+                                val email = credentials.first
+                                val password = credentials.second
+                                if (!email.isNullOrEmpty() && !password.isNullOrEmpty()) {
+                                    val loginBody = "{\"email\":\"$email\",\"password\":\"$password\"}".toRequestBody(mediaType)
+                                    val loginRequest = okhttp3.Request.Builder()
+                                        .url(serverUrl.replace("/api/v1", "") + "/api/v1/auth/login")
+                                        .post(loginBody)
+                                        .build()
+                                    try {
+                                        val loginResponse = refreshClient.newCall(loginRequest).execute()
+                                        if (loginResponse.isSuccessful) {
+                                            val bodyString = loginResponse.body?.string()
+                                            val json = com.google.gson.JsonParser.parseString(bodyString).asJsonObject
+                                            val newAccess = json.get("accessToken").asString
+                                            val newRefresh = json.get("refreshToken").asString
+
+                                            runBlocking {
+                                                preferences.saveTokens(newAccess, newRefresh)
+                                            }
+
+                                            response.close()
+                                            val retryRequest = newRequest.newBuilder()
+                                                .addHeader("Authorization", "Bearer $newAccess")
+                                                .build()
+                                            response = chain.proceed(retryRequest)
+                                        }
+                                    } catch (e: Exception) {
+                                        // Ignore
+                                    }
+                                }
                             }
                         }
                     }

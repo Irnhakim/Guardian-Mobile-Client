@@ -3,6 +3,7 @@ package id.irnhakim.guardian.core.services
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
@@ -19,7 +20,6 @@ import id.irnhakim.guardian.ui.AppBlockActivity
 import android.app.usage.UsageStatsManager
 import java.util.TreeMap
 import id.irnhakim.guardian.core.receivers.AppInstallReceiver
-import android.content.IntentFilter
 import android.os.Build
 
 @AndroidEntryPoint
@@ -68,7 +68,7 @@ class LocationForegroundService : Service() {
         serviceScope.launch {
             val serverUrl = preferences.getServerUrlSync() ?: return@launch
             val deviceId = preferences.getServerDeviceIdSync() ?: return@launch
-            socketManager = GuardianSocketManager(this@LocationForegroundService, serverUrl, deviceId, preferences)
+            socketManager = GuardianSocketManager(this@LocationForegroundService, serverUrl, deviceId, preferences, api)
             socketManager?.connect()
         }
     }
