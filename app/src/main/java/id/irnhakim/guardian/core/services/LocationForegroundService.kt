@@ -51,6 +51,7 @@ class LocationForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         try {
             startForeground(NOTIFICATION_ID, buildNotification())
         } catch (e: Exception) {
@@ -145,6 +146,7 @@ class LocationForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
     override fun onDestroy() {
+        instance = null
         fusedLocationClient.removeLocationUpdates(locationCallback)
         socketManager?.disconnect()
         appInstallReceiver?.let { unregisterReceiver(it) }
@@ -203,6 +205,12 @@ class LocationForegroundService : Service() {
 
     companion object {
         private const val NOTIFICATION_ID = 1001
+        @Volatile
+        private var instance: LocationForegroundService? = null
+
+        fun syncPermissionsNow() {
+            instance?.syncPermissions()
+        }
 
         fun start(context: Context) {
             val hasLocation = androidx.core.content.ContextCompat.checkSelfPermission(
@@ -227,6 +235,7 @@ class LocationForegroundService : Service() {
         }
 
         fun stop(context: Context) {
+            instance = null
             context.stopService(Intent(context, LocationForegroundService::class.java))
         }
     }

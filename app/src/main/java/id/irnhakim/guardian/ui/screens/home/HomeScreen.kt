@@ -72,6 +72,7 @@ fun HomeScreen() {
         if (loc) {
             LocationForegroundService.start(context)
         }
+        LocationForegroundService.syncPermissionsNow()
         BatteryWorker.schedule(context)
         AppSyncWorker.schedule(context)
 
