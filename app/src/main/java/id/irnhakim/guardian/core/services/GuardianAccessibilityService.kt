@@ -6,14 +6,27 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
+import dagger.hilt.android.AndroidEntryPoint
+import id.irnhakim.guardian.data.local.GuardianPreferences
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class GuardianAccessibilityService : AccessibilityService() {
 
+    @Inject lateinit var preferences: GuardianPreferences
+
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
+        val packageName = event.packageName?.toString() ?: ""
+        if (packageName == "id.irnhakim.guardian") return
+
+        try {
+            if (!preferences.isAntiUninstallEnabledSync()) return
+        } catch (e: Exception) {
+            // If preferences check fails, continue default protection
+        }
+
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
             event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) return
-
-        val packageName = event.packageName?.toString() ?: ""
 
         // Target Settings applications, Package Installers, and App Uninstaller dialogs
         val isTargetApp = packageName.contains("settings", ignoreCase = true) ||

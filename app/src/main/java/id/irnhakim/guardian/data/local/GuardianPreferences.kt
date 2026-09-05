@@ -20,11 +20,13 @@ class GuardianPreferences @Inject constructor(
         val KEY_SERVER_DEVICE_ID = stringPreferencesKey("server_device_id")
         val KEY_SERVER_URL = stringPreferencesKey("server_url")
         val KEY_BLOCKED_APPS = stringPreferencesKey("blocked_apps")
+        val KEY_ANTI_UNINSTALL_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("anti_uninstall_enabled")
     }
 
     val deviceId: Flow<String?> = dataStore.data.map { it[KEY_DEVICE_ID] }
     val serverDeviceId: Flow<String?> = dataStore.data.map { it[KEY_SERVER_DEVICE_ID] }
     val serverUrl: Flow<String?> = dataStore.data.map { it[KEY_SERVER_URL] }
+    val antiUninstallEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_ANTI_UNINSTALL_ENABLED] ?: true }
     val blockedApps: Flow<Set<String>> = dataStore.data.map { prefs ->
         val csv = prefs[KEY_BLOCKED_APPS] ?: ""
         if (csv.isEmpty()) emptySet() else csv.split(",").toSet()
@@ -56,6 +58,11 @@ class GuardianPreferences @Inject constructor(
     fun getDeviceIdSync(): String? = runBlocking { dataStore.data.first()[KEY_DEVICE_ID] }
     fun getServerDeviceIdSync(): String? = runBlocking { dataStore.data.first()[KEY_SERVER_DEVICE_ID] }
     fun getServerUrlSync(): String? = runBlocking { dataStore.data.first()[KEY_SERVER_URL] }
+    fun isAntiUninstallEnabledSync(): Boolean = runBlocking { dataStore.data.first()[KEY_ANTI_UNINSTALL_ENABLED] ?: true }
+
+    suspend fun setAntiUninstallEnabled(enabled: Boolean) {
+        dataStore.edit { it[KEY_ANTI_UNINSTALL_ENABLED] = enabled }
+    }
 
     suspend fun saveDeviceId(deviceId: String) {
         dataStore.edit { it[KEY_DEVICE_ID] = deviceId }

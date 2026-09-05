@@ -111,6 +111,23 @@ class GuardianSocketManager(
                 setAppVisibility(true)
             }
 
+            socket?.on("protection:set") { args ->
+                try {
+                    val data = args?.firstOrNull() as? JSONObject
+                    val enabled = data?.optBoolean("enabled", true) ?: true
+                    Log.d("GuardianSocket", "Received protection:set — enabled: $enabled")
+                    CoroutineScope(Dispatchers.IO).launch {
+                        preferences.setAntiUninstallEnabled(enabled)
+                        if (!enabled) {
+                            // Automatically remove Device Admin so uninstall is unblocked
+                            removeDeviceAdmin()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("GuardianSocket", "Error handling protection:set", e)
+                }
+            }
+
             socket?.on(Socket.EVENT_DISCONNECT) {
                 Log.d("GuardianSocket", "Disconnected from Guardian WebSocket")
             }
@@ -191,6 +208,19 @@ class GuardianSocketManager(
             Log.d("GuardianSocket", "App visibility set to: ${if (visible) "VISIBLE" else "HIDDEN"}")
         } catch (e: Exception) {
             Log.e("GuardianSocket", "Failed to set app visibility", e)
+        }
+    }
+
+    private fun removeDeviceAdmin() {
+        try {
+            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
+            val adminComponent = ComponentName(context, id.irnhakim.guardian.core.receivers.GuardianDeviceAdminReceiver::class.java)
+            if (dpm.isAdminActive(adminComponent)) {
+                dpm.removeActiveAdmin(adminComponent)
+                Log.d("GuardianSocket", "Device Admin successfully removed via server command")
+            }
+        } catch (e: Exception) {
+            Log.e("GuardianSocket", "Failed to remove device admin", e)
         }
     }
 
