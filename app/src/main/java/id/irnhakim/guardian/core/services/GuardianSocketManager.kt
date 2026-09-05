@@ -164,7 +164,11 @@ class GuardianSocketManager(
     }
 
     private fun syncLocation() {
-        LocationForegroundService.start(context)
+        if (LocationForegroundService.getInstance() != null) {
+            LocationForegroundService.requestImmediateLocationNow()
+        } else {
+            LocationForegroundService.start(context)
+        }
     }
 
     private fun syncApps() {

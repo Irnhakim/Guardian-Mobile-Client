@@ -51,10 +51,32 @@ class LocationForegroundService : Service() {
 
     fun requestImmediateLocation() {
         try {
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                location?.let {
+            val currentRequest = CurrentLocationRequest.Builder()
+                .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+                .setMaxUpdateAgeMillis(5000)
+                .build()
+
+            fusedLocationClient.getCurrentLocation(currentRequest, null).addOnSuccessListener { location ->
+                if (location != null) {
                     serviceScope.launch {
-                        sendLocation(it)
+                        sendLocation(location)
+                    }
+                } else {
+                    // Fallback to lastLocation if fresh location not yet acquired
+                    fusedLocationClient.lastLocation.addOnSuccessListener { fallbackLoc ->
+                        fallbackLoc?.let {
+                            serviceScope.launch {
+                                sendLocation(it)
+                            }
+                        }
+                    }
+                }
+            }.addOnFailureListener {
+                fusedLocationClient.lastLocation.addOnSuccessListener { fallbackLoc ->
+                    fallbackLoc?.let {
+                        serviceScope.launch {
+                            sendLocation(it)
+                        }
                     }
                 }
             }
@@ -221,6 +243,12 @@ class LocationForegroundService : Service() {
         private const val NOTIFICATION_ID = 1001
         @Volatile
         private var instance: LocationForegroundService? = null
+
+        fun getInstance(): LocationForegroundService? = instance
+
+        fun requestImmediateLocationNow() {
+            instance?.requestImmediateLocation()
+        }
 
         fun syncPermissionsNow() {
             instance?.syncPermissions()
