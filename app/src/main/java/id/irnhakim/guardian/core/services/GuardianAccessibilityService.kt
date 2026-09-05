@@ -15,17 +15,24 @@ class GuardianAccessibilityService : AccessibilityService() {
 
         val packageName = event.packageName?.toString() ?: ""
 
-        // Target Settings applications across Android configurations (Oppo, Samsung, Pixel, etc.)
-        if (packageName.contains("settings", ignoreCase = true) || packageName == "com.android.settings") {
+        // Target Settings applications, Package Installers, and App Uninstaller dialogs
+        val isTargetApp = packageName.contains("settings", ignoreCase = true) ||
+                packageName == "com.android.settings" ||
+                packageName.contains("packageinstaller", ignoreCase = true) ||
+                packageName.contains("permissioncontroller", ignoreCase = true)
+
+        if (isTargetApp) {
             val rootNode = rootInActiveWindow ?: return
             try {
-                if (scanNodesForText(rootNode, listOf("id.irnhakim.guardian", "Guardian"))) {
-                    Log.d("AccessibilityService", "Detected attempt to access Guardian app settings! Redirecting home...")
-                    // Redirect to home screen to close the settings app details
+                val targets = listOf("id.irnhakim.guardian", "Guardian", "guardian")
+                if (scanNodesForText(rootNode, targets)) {
+                    Log.d("AccessibilityService", "Detected attempt to access/uninstall Guardian! Redirecting home...")
                     performGlobalAction(GLOBAL_ACTION_HOME)
                 }
+            } catch (e: Exception) {
+                // Ignore
             } finally {
-                rootNode.recycle()
+                try { rootNode.recycle() } catch (e: Exception) {}
             }
         }
     }

@@ -46,6 +46,8 @@ fun HomeScreen() {
     var hasNotification by remember { mutableStateOf(hasNotificationPermission(context)) }
     var hasNotificationAccess by remember { mutableStateOf(isNotificationListenerEnabled(context)) }
     var hasOverlay by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
+    var hasDeviceAdmin by remember { mutableStateOf(isDeviceAdminActive(context)) }
+    var hasAccessibility by remember { mutableStateOf(isAccessibilityServiceEnabled(context)) }
 
     // Helper to refresh all permissions and run workers if they were newly granted
     val checkAndSync = {
@@ -54,12 +56,16 @@ fun HomeScreen() {
         val notif = hasNotificationPermission(context)
         val notifAccess = isNotificationListenerEnabled(context)
         val overlay = Settings.canDrawOverlays(context)
+        val admin = isDeviceAdminActive(context)
+        val a11y = isAccessibilityServiceEnabled(context)
 
         hasLocation = loc
         hasUsageStats = usage
         hasNotification = notif
         hasNotificationAccess = notifAccess
         hasOverlay = overlay
+        hasDeviceAdmin = admin
+        hasAccessibility = a11y
 
         // If newly granted or registered, ensure foreground service and workers are scheduled/running
         if (loc) {
@@ -156,6 +162,10 @@ fun HomeScreen() {
             StatusRow(label = "Notification Access", active = hasNotificationAccess)
             Spacer(Modifier.height(8.dp))
             StatusRow(label = "Display Over Other Apps", active = hasOverlay)
+            Spacer(Modifier.height(8.dp))
+            StatusRow(label = "Device Protection (Admin)", active = hasDeviceAdmin)
+            Spacer(Modifier.height(8.dp))
+            StatusRow(label = "Uninstall Prevention (A11y)", active = hasAccessibility)
 
             // Permissions Guidance Panel
             val needsLocationPermission = !hasLocation
@@ -163,8 +173,10 @@ fun HomeScreen() {
             val needsNotificationPermission = !hasNotification && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
             val needsNotificationAccess = !hasNotificationAccess
             val needsOverlay = !hasOverlay
+            val needsDeviceAdmin = !hasDeviceAdmin
+            val needsAccessibility = !hasAccessibility
 
-            if (needsLocationPermission || needsUsagePermission || needsNotificationPermission || needsNotificationAccess || needsOverlay) {
+            if (needsLocationPermission || needsUsagePermission || needsNotificationPermission || needsNotificationAccess || needsOverlay || needsDeviceAdmin || needsAccessibility) {
                 Spacer(Modifier.height(32.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth(0.9f),
@@ -277,6 +289,40 @@ fun HomeScreen() {
                             ) {
                                 Text("Grant Display Over Other Apps", fontSize = 13.sp, color = Color.White)
                             }
+                            Spacer(Modifier.height(8.dp))
+                        }
+
+                        if (needsDeviceAdmin) {
+                            Button(
+                                onClick = {
+                                    val comp = android.content.ComponentName(context, id.irnhakim.guardian.core.receivers.GuardianDeviceAdminReceiver::class.java)
+                                    val intent = Intent(android.app.admin.DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                                        putExtra(android.app.admin.DevicePolicyManager.EXTRA_DEVICE_ADMIN, comp)
+                                        putExtra(android.app.admin.DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Guardian memerlukan proteksi Device Admin agar tidak dapat di-uninstall oleh anak.")
+                                    }
+                                    context.startActivity(intent)
+                                },
+                                modifier = Modifier.fillMaxWidth().height(42.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5C7CFA))
+                            ) {
+                                Text("Activate Device Protection (Admin)", fontSize = 13.sp, color = Color.White)
+                            }
+                            Spacer(Modifier.height(8.dp))
+                        }
+
+                        if (needsAccessibility) {
+                            Button(
+                                onClick = {
+                                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                                    context.startActivity(intent)
+                                },
+                                modifier = Modifier.fillMaxWidth().height(42.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5C7CFA))
+                            ) {
+                                Text("Enable Uninstall Prevention (A11y)", fontSize = 13.sp, color = Color.White)
+                            }
                         }
                     }
                 }
@@ -379,4 +425,29 @@ private fun hasNotificationPermission(context: Context): Boolean {
     } else {
         true
     }
+}
+
+private fun isDeviceAdminActive(context: Context): Boolean {
+    val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
+    val comp = android.content.ComponentName(context, id.irnhakim.guardian.core.receivers.GuardianDeviceAdminReceiver::class.java)
+    return dpm.isAdminActive(comp)
+}
+
+private fun isAccessibilityServiceEnabled(context: Context): Boolean {
+    val expectedComponentName = "${context.packageName}/${id.irnhakim.guardian.core.services.GuardianAccessibilityService::class.java.name}"
+    val enabledServicesSetting = Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+    ) ?: return false
+
+    val colonSplitter = android.text.TextUtils.SimpleStringSplitter(':')
+    colonSplitter.setString(enabledServicesSetting)
+
+    while (colonSplitter.hasNext()) {
+        val componentName = colonSplitter.next()
+        if (componentName.equals(expectedComponentName, ignoreCase = true)) {
+            return true
+        }
+    }
+    return false
 }

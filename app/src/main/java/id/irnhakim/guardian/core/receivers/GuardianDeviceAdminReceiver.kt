@@ -19,4 +19,8 @@ class GuardianDeviceAdminReceiver : DeviceAdminReceiver() {
         Log.d("DeviceAdmin", "Device Admin Disabled")
         Toast.makeText(context, "Guardian Device Admin Dinonaktifkan", Toast.LENGTH_SHORT).show()
     }
+
+    override fun onDisableRequested(context: Context, intent: Intent): CharSequence {
+        return "Guardian adalah aplikasi proteksi orang tua. Menonaktifkan admin akan menghentikan pemantauan dan membatasi akses perangkat!"
+    }
 }
