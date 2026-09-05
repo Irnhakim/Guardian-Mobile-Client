@@ -15,6 +15,8 @@ import io.socket.client.Socket
 import id.irnhakim.guardian.data.local.GuardianPreferences
 import id.irnhakim.guardian.data.remote.api.GuardianApi
 import id.irnhakim.guardian.data.remote.dto.BatteryRequest
+import id.irnhakim.guardian.data.remote.dto.UpdateDeviceRequest
+import id.irnhakim.guardian.core.utils.PermissionUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -51,6 +53,7 @@ class GuardianSocketManager(
                 Log.d("GuardianSocket", "Connected to Guardian WebSocket")
                 // Join the device room
                 socket?.emit("subscribe:device", mapOf("deviceId" to deviceId))
+                syncPermissions()
             }
 
             socket?.on("force_sync") {
@@ -178,6 +181,19 @@ class GuardianSocketManager(
 
         // Also force a location update if location service is running
         LocationForegroundService.start(context)
+        syncPermissions()
+    }
+
+    fun syncPermissions() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val checklist = PermissionUtils.getPermissionChecklist(context)
+                api.updateDevice(deviceId, UpdateDeviceRequest(permissions = checklist))
+                Log.d("GuardianSocket", "Permissions synced to server: $checklist")
+            } catch (e: Exception) {
+                Log.e("GuardianSocket", "Failed to sync permissions", e)
+            }
+        }
     }
 
     private fun resetApp() {

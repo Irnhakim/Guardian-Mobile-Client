@@ -14,6 +14,7 @@ import id.irnhakim.guardian.data.remote.dto.*
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
+import id.irnhakim.guardian.core.utils.PermissionUtils
 
 @HiltWorker
 class AppSyncWorker @AssistedInject constructor(
@@ -43,6 +44,14 @@ class AppSyncWorker @AssistedInject constructor(
             api.syncApps(deviceId, SyncAppsRequest(apps))
         } catch (e: Exception) {
             // Continue to usage sync even if app list fails
+        }
+
+        // Sync permissions
+        try {
+            val checklist = PermissionUtils.getPermissionChecklist(applicationContext)
+            api.updateDevice(deviceId, UpdateDeviceRequest(permissions = checklist))
+        } catch (e: Exception) {
+            // Ignore if permission sync fails
         }
 
         // 2. Sync usage stats (requires PACKAGE_USAGE_STATS permission)

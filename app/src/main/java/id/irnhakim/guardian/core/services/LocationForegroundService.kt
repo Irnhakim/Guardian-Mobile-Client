@@ -45,6 +45,10 @@ class LocationForegroundService : Service() {
 
     private var socketManager: GuardianSocketManager? = null
 
+    fun syncPermissions() {
+        socketManager?.syncPermissions()
+    }
+
     override fun onCreate() {
         super.onCreate()
         try {

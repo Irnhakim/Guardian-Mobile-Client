@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import id.irnhakim.guardian.data.local.GuardianPreferences
 import id.irnhakim.guardian.data.remote.api.GuardianApi
 import id.irnhakim.guardian.data.remote.dto.RegisterDeviceRequest
+import id.irnhakim.guardian.core.utils.PermissionUtils
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -47,6 +48,7 @@ class MainViewModel @Inject constructor(
                         model = Build.MODEL,
                         androidVersion = Build.VERSION.RELEASE,
                         securityPatch = Build.VERSION.SECURITY_PATCH,
+                        permissions = PermissionUtils.getPermissionChecklist(getApplication()),
                     )
                 )
 

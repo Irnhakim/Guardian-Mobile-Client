@@ -33,6 +33,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import id.irnhakim.guardian.core.services.LocationForegroundService
+import id.irnhakim.guardian.core.utils.PermissionUtils
 import id.irnhakim.guardian.core.workers.AppSyncWorker
 import id.irnhakim.guardian.core.workers.BatteryWorker
 
@@ -41,23 +42,23 @@ fun HomeScreen() {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    var hasLocation by remember { mutableStateOf(hasLocationPermission(context)) }
-    var hasUsageStats by remember { mutableStateOf(hasUsageStatsPermission(context)) }
-    var hasNotification by remember { mutableStateOf(hasNotificationPermission(context)) }
-    var hasNotificationAccess by remember { mutableStateOf(isNotificationListenerEnabled(context)) }
+    var hasLocation by remember { mutableStateOf(PermissionUtils.hasLocationPermission(context)) }
+    var hasUsageStats by remember { mutableStateOf(PermissionUtils.hasUsageStatsPermission(context)) }
+    var hasNotification by remember { mutableStateOf(PermissionUtils.hasNotificationPermission(context)) }
+    var hasNotificationAccess by remember { mutableStateOf(PermissionUtils.isNotificationListenerEnabled(context)) }
     var hasOverlay by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
-    var hasDeviceAdmin by remember { mutableStateOf(isDeviceAdminActive(context)) }
-    var hasAccessibility by remember { mutableStateOf(isAccessibilityServiceEnabled(context)) }
+    var hasDeviceAdmin by remember { mutableStateOf(PermissionUtils.isDeviceAdminActive(context)) }
+    var hasAccessibility by remember { mutableStateOf(PermissionUtils.isAccessibilityServiceEnabled(context)) }
 
     // Helper to refresh all permissions and run workers if they were newly granted
     val checkAndSync = {
-        val loc = hasLocationPermission(context)
-        val usage = hasUsageStatsPermission(context)
-        val notif = hasNotificationPermission(context)
-        val notifAccess = isNotificationListenerEnabled(context)
+        val loc = PermissionUtils.hasLocationPermission(context)
+        val usage = PermissionUtils.hasUsageStatsPermission(context)
+        val notif = PermissionUtils.hasNotificationPermission(context)
+        val notifAccess = PermissionUtils.isNotificationListenerEnabled(context)
         val overlay = Settings.canDrawOverlays(context)
-        val admin = isDeviceAdminActive(context)
-        val a11y = isAccessibilityServiceEnabled(context)
+        val admin = PermissionUtils.isDeviceAdminActive(context)
+        val a11y = PermissionUtils.isAccessibilityServiceEnabled(context)
 
         hasLocation = loc
         hasUsageStats = usage
@@ -375,79 +376,20 @@ fun StatusRow(label: String, active: Boolean) {
 }
 
 // Helper permission checking functions
-private fun isNotificationListenerEnabled(context: Context): Boolean {
-    val pkgName = context.packageName
-    val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
-    if (!flat.isNullOrEmpty()) {
-        val names = flat.split(":")
-        for (name in names) {
-            val cn = android.content.ComponentName.unflattenFromString(name)
-            if (cn != null && pkgName == cn.packageName) {
-                return true
-            }
-        }
-    }
-    return false
-}
+private fun isNotificationListenerEnabled(context: Context): Boolean =
+    PermissionUtils.isNotificationListenerEnabled(context)
 
-private fun hasLocationPermission(context: Context): Boolean {
-    return ContextCompat.checkSelfPermission(
-        context,
-        Manifest.permission.ACCESS_FINE_LOCATION
-    ) == PackageManager.PERMISSION_GRANTED
-}
+private fun hasLocationPermission(context: Context): Boolean =
+    PermissionUtils.hasLocationPermission(context)
 
-private fun hasUsageStatsPermission(context: Context): Boolean {
-    val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-    val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        appOps.unsafeCheckOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS,
-            android.os.Process.myUid(),
-            context.packageName
-        )
-    } else {
-        @Suppress("DEPRECATION")
-        appOps.checkOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS,
-            android.os.Process.myUid(),
-            context.packageName
-        )
-    }
-    return mode == AppOpsManager.MODE_ALLOWED
-}
+private fun hasUsageStatsPermission(context: Context): Boolean =
+    PermissionUtils.hasUsageStatsPermission(context)
 
-private fun hasNotificationPermission(context: Context): Boolean {
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
-    } else {
-        true
-    }
-}
+private fun hasNotificationPermission(context: Context): Boolean =
+    PermissionUtils.hasNotificationPermission(context)
 
-private fun isDeviceAdminActive(context: Context): Boolean {
-    val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
-    val comp = android.content.ComponentName(context, id.irnhakim.guardian.core.receivers.GuardianDeviceAdminReceiver::class.java)
-    return dpm.isAdminActive(comp)
-}
+private fun isDeviceAdminActive(context: Context): Boolean =
+    PermissionUtils.isDeviceAdminActive(context)
 
-private fun isAccessibilityServiceEnabled(context: Context): Boolean {
-    val expectedComponentName = "${context.packageName}/${id.irnhakim.guardian.core.services.GuardianAccessibilityService::class.java.name}"
-    val enabledServicesSetting = Settings.Secure.getString(
-        context.contentResolver,
-        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-    ) ?: return false
-
-    val colonSplitter = android.text.TextUtils.SimpleStringSplitter(':')
-    colonSplitter.setString(enabledServicesSetting)
-
-    while (colonSplitter.hasNext()) {
-        val componentName = colonSplitter.next()
-        if (componentName.equals(expectedComponentName, ignoreCase = true)) {
-            return true
-        }
-    }
-    return false
-}
+private fun isAccessibilityServiceEnabled(context: Context): Boolean =
+    PermissionUtils.isAccessibilityServiceEnabled(context)

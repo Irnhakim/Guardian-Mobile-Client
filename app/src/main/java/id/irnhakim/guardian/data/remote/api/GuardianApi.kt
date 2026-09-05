@@ -10,6 +10,12 @@ interface GuardianApi {
     @POST("devices/register")
     suspend fun registerDevice(@Body request: RegisterDeviceRequest): Response<DeviceResponse>
 
+    @PUT("devices/{deviceId}")
+    suspend fun updateDevice(
+        @Path("deviceId") deviceId: String,
+        @Body request: UpdateDeviceRequest,
+    ): Response<DeviceResponse>
+
     @POST("devices/{deviceId}/battery")
     suspend fun submitBattery(
         @Path("deviceId") deviceId: String,

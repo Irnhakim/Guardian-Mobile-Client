@@ -12,6 +12,12 @@ data class RegisterDeviceRequest(
     val androidVersion: String,
     val securityPatch: String? = null,
     val fcmToken: String? = null,
+    val permissions: Map<String, Boolean>? = null,
+)
+
+data class UpdateDeviceRequest(
+    val permissions: Map<String, Boolean>? = null,
+    val fcmToken: String? = null,
 )
 
 data class DeviceResponse(
