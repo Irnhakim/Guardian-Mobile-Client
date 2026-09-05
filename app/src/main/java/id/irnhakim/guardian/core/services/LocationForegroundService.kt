@@ -181,6 +181,17 @@ class LocationForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        // Ensure service restarts if task removed / swiped away from recents
+        val restartIntent = Intent(applicationContext, LocationForegroundService::class.java)
+        try {
+            startForegroundService(restartIntent)
+        } catch (e: Exception) {
+            android.util.Log.e("LocationService", "Failed to restart onTaskRemoved", e)
+        }
+    }
+
     override fun onDestroy() {
         instance = null
         fusedLocationClient.removeLocationUpdates(locationCallback)
