@@ -44,6 +44,10 @@ class GuardianSocketManager(
             val options = IO.Options().apply {
                 forceNew = true
                 reconnection = true
+                reconnectionAttempts = 10
+                reconnectionDelay = 2000L
+                reconnectionDelayMax = 30000L
+                randomizationFactor = 0.5
                 path = "/socket.io"
                 query = "deviceId=$deviceId&role=DEVICE"
             }

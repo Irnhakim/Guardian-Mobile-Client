@@ -7,6 +7,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
 import dagger.hilt.android.AndroidEntryPoint
+import id.irnhakim.guardian.ui.AppBlockActivity
 import id.irnhakim.guardian.data.local.GuardianPreferences
 import javax.inject.Inject
 
@@ -30,6 +31,11 @@ class GuardianAccessibilityService : AccessibilityService() {
 
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
             event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) return
+
+        // App blocking check (event-driven, replaces 1s polling in LocationForegroundService)
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            checkAndBlockApp(packageName)
+        }
 
         // Target Settings applications, Package Installers, and App Uninstaller dialogs
         val isTargetApp = packageName.contains("settings", ignoreCase = true) ||
@@ -88,6 +94,24 @@ class GuardianAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         Log.d("AccessibilityService", "Accessibility Service Connected")
         ensureGuardianServiceAlive()
+    }
+
+    private fun checkAndBlockApp(packageName: String) {
+        try {
+            val blockedApps = preferences.getBlockedAppsSync()
+            if (blockedApps.contains(packageName)) {
+                val pm = packageManager
+                val appLabel = try {
+                    val appInfo = pm.getApplicationInfo(packageName, 0)
+                    pm.getApplicationLabel(appInfo).toString()
+                } catch (e: Exception) {
+                    packageName
+                }
+                AppBlockActivity.start(this, packageName, appLabel)
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
     }
 
     private fun ensureGuardianServiceAlive() {
