@@ -14,9 +14,12 @@ import io.socket.client.IO
 import io.socket.client.Socket
 import id.irnhakim.guardian.data.local.GuardianPreferences
 import id.irnhakim.guardian.data.remote.api.GuardianApi
-import id.irnhakim.guardian.data.remote.dto.BatteryRequest
-import id.irnhakim.guardian.data.remote.dto.UpdateDeviceRequest
+import id.irnhakim.guardian.data.remote.dto.*
 import id.irnhakim.guardian.core.utils.PermissionUtils
+import android.app.usage.UsageStatsManager
+import android.content.pm.ApplicationInfo
+import java.text.SimpleDateFormat
+import java.util.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -56,9 +59,11 @@ class GuardianSocketManager(
                 syncPermissions()
             }
 
-            socket?.on("force_sync") {
-                Log.d("GuardianSocket", "Received force_sync command from dashboard!")
-                triggerSync()
+            socket?.on("force_sync") { args ->
+                val data = args?.firstOrNull() as? JSONObject
+                val target = data?.optString("target", "all") ?: "all"
+                Log.d("GuardianSocket", "Received force_sync command from dashboard (target: $target)!")
+                triggerSync(target)
             }
 
             socket?.on("device:deleted") {
@@ -141,12 +146,91 @@ class GuardianSocketManager(
         }
     }
 
-    private fun triggerSync() {
-        val workManager = WorkManager.getInstance(context)
-        // Enqueue AppSync via WorkManager (heavy operation, ok to queue)
-        workManager.enqueue(OneTimeWorkRequestBuilder<AppSyncWorker>().build())
+    private fun triggerSync(target: String = "all") {
+        when (target) {
+            "all" -> {
+                syncBattery()
+                syncLocation()
+                syncPermissions()
+                syncApps()
+                syncUsage()
+            }
+            "battery" -> syncBattery()
+            "location" -> syncLocation()
+            "apps" -> syncApps()
+            "usage" -> syncUsage()
+            "permissions" -> syncPermissions()
+        }
+    }
 
-        // Directly send battery data NOW (no WorkManager delay)
+    private fun syncLocation() {
+        LocationForegroundService.start(context)
+    }
+
+    private fun syncApps() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val pm = context.packageManager
+                val packages = pm.getInstalledPackages(PackageManager.GET_META_DATA)
+                val apps = packages.map { pkg ->
+                    val isSystem = pkg.applicationInfo?.flags?.and(ApplicationInfo.FLAG_SYSTEM) != 0
+                    AppInfoDto(
+                        packageName = pkg.packageName,
+                        appName = pkg.applicationInfo?.loadLabel(pm)?.toString() ?: pkg.packageName,
+                        versionName = pkg.versionName,
+                        versionCode = pkg.longVersionCode.toInt(),
+                        isSystemApp = isSystem,
+                    )
+                }
+                api.syncApps(deviceId, SyncAppsRequest(apps))
+                Log.d("GuardianSocket", "Direct realtime sync apps: ${apps.size} apps sent")
+            } catch (e: Exception) {
+                Log.e("GuardianSocket", "Direct sync apps failed", e)
+            }
+        }
+    }
+
+    private fun syncUsage() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return@launch
+                val cal = Calendar.getInstance()
+                val endTime = cal.timeInMillis
+                cal.add(Calendar.DAY_OF_YEAR, -7)
+                val startTime = cal.timeInMillis
+
+                val stats = usm.queryAndAggregateUsageStats(startTime, endTime)
+                val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                val today = dateFormat.format(Date())
+
+                val usages = stats
+                    .filter { (_, stat) -> stat.totalTimeInForeground > 0 }
+                    .map { (pkgName, stat) ->
+                        val appLabel = try {
+                            val appInfo = context.packageManager.getApplicationInfo(pkgName, 0)
+                            context.packageManager.getApplicationLabel(appInfo).toString()
+                        } catch (e: Exception) {
+                            pkgName
+                        }
+                        AppUsageItemDto(
+                            packageName = pkgName,
+                            appName = appLabel,
+                            usageMs = stat.totalTimeInForeground,
+                            date = today,
+                        )
+                    }
+
+                if (usages.isNotEmpty()) {
+                    api.syncUsage(deviceId, SyncUsageRequest(usages))
+                    Log.d("GuardianSocket", "Direct realtime sync usage: ${usages.size} items sent")
+                }
+            } catch (e: Exception) {
+                Log.e("GuardianSocket", "Direct sync usage failed", e)
+            }
+        }
+    }
+
+    private fun syncBattery() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
@@ -178,10 +262,6 @@ class GuardianSocketManager(
                 Log.e("GuardianSocket", "Force sync battery failed", e)
             }
         }
-
-        // Also force a location update if location service is running
-        LocationForegroundService.start(context)
-        syncPermissions()
     }
 
     fun syncPermissions() {

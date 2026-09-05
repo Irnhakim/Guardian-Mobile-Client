@@ -49,6 +49,20 @@ class LocationForegroundService : Service() {
         socketManager?.syncPermissions()
     }
 
+    fun requestImmediateLocation() {
+        try {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                location?.let {
+                    serviceScope.launch {
+                        sendLocation(it)
+                    }
+                }
+            }
+        } catch (e: SecurityException) {
+            // Permission missing
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
