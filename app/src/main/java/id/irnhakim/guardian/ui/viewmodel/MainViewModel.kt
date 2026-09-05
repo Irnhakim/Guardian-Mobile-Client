@@ -2,25 +2,17 @@ package id.irnhakim.guardian.ui.viewmodel
 
 import android.app.Application
 import android.os.Build
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.fasterxml.uuid.Generators
 import dagger.hilt.android.lifecycle.HiltViewModel
 import id.irnhakim.guardian.data.local.GuardianPreferences
 import id.irnhakim.guardian.data.remote.api.GuardianApi
-import id.irnhakim.guardian.data.remote.dto.LoginRequest
 import id.irnhakim.guardian.data.remote.dto.RegisterDeviceRequest
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-data class SetupState(
-    val isLoading: Boolean = false,
-    val error: String? = null,
-    val step: SetupStep = SetupStep.CREDENTIALS,
-)
-
-enum class SetupStep { CREDENTIALS, REGISTERING, DONE }
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -33,42 +25,21 @@ class MainViewModel @Inject constructor(
         .map { !it.isNullOrEmpty() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    private val _setupState = MutableStateFlow(SetupState())
-    val setupState: StateFlow<SetupState> = _setupState.asStateFlow()
-
-    fun setup(email: String, password: String, serverUrl: String, onComplete: () -> Unit) {
+    fun autoRegister() {
+        Log.d("MainViewModel", "autoRegister called")
         viewModelScope.launch {
-            _setupState.update { it.copy(isLoading = true, error = null) }
+            try {
+                Log.d("MainViewModel", "autoRegister coroutine started")
+                val serverId = preferences.getServerDeviceIdSync()
+                Log.d("MainViewModel", "current serverId=$serverId")
+                if (!serverId.isNullOrEmpty()) return@launch
 
-            // Save the server URL first, so the OkHttp Interceptor will dynamically redirect the Retrofit instance immediately.
-            preferences.saveServerUrl(serverUrl)
+                val deviceId = preferences.getDeviceIdSync()
+                    ?: Generators.randomBasedGenerator().generate().toString()
+                        .also { preferences.saveDeviceId(it) }
 
-            // 1. Login as parent
-            val loginResult = runCatching {
-                api.login(LoginRequest(email, password))
-            }.getOrElse {
-                _setupState.update { s -> s.copy(isLoading = false, error = "Cannot reach server: ${it.message}") }
-                return@launch
-            }
-
-            if (!loginResult.isSuccessful) {
-                _setupState.update { it.copy(isLoading = false, error = "Invalid credentials") }
-                return@launch
-            }
-
-            val tokens = loginResult.body()!!
-            preferences.saveTokens(tokens.accessToken, tokens.refreshToken)
-            preferences.saveCredentials(email, password)
-
-            // 2. Generate or reuse device ID
-            val deviceId = preferences.getDeviceIdSync()
-                ?: Generators.randomBasedGenerator().generate().toString()
-                    .also { preferences.saveDeviceId(it) }
-
-            // 3. Register device
-            _setupState.update { it.copy(step = SetupStep.REGISTERING) }
-            val registerResult = runCatching {
-                api.registerDevice(
+                Log.d("MainViewModel", "Registering device: deviceId=$deviceId")
+                val response = api.registerDevice(
                     RegisterDeviceRequest(
                         deviceId = deviceId,
                         deviceName = "${Build.MANUFACTURER} ${Build.MODEL}",
@@ -78,19 +49,17 @@ class MainViewModel @Inject constructor(
                         securityPatch = Build.VERSION.SECURITY_PATCH,
                     )
                 )
-            }.getOrElse {
-                _setupState.update { s -> s.copy(isLoading = false, error = "Registration failed: ${it.message}") }
-                return@launch
-            }
 
-            if (!registerResult.isSuccessful) {
-                _setupState.update { it.copy(isLoading = false, error = "Device registration failed") }
-                return@launch
+                if (response.isSuccessful && response.body() != null) {
+                    val registeredDeviceId = response.body()!!.deviceId
+                    preferences.saveServerDeviceId(registeredDeviceId)
+                    Log.d("MainViewModel", "Device auto-registered successfully: $registeredDeviceId")
+                } else {
+                    Log.e("MainViewModel", "Auto-registration failed: code=${response.code()} err=${response.errorBody()?.string()}")
+                }
+            } catch (e: Throwable) {
+                Log.e("MainViewModel", "Auto-registration error: ${e.message}", e)
             }
-
-            preferences.saveServerDeviceId(registerResult.body()!!.deviceId)
-            _setupState.update { it.copy(isLoading = false, step = SetupStep.DONE) }
-            onComplete()
         }
     }
 }

@@ -2,30 +2,6 @@ package id.irnhakim.guardian.data.remote.dto
 
 import com.google.gson.annotations.SerializedName
 
-// ── Auth ──────────────────────────────────────────────────────
-
-data class LoginRequest(
-    val email: String,
-    val password: String,
-)
-
-data class RefreshRequest(
-    val refreshToken: String,
-)
-
-data class AuthResponse(
-    val accessToken: String,
-    val refreshToken: String,
-    val user: UserDto,
-)
-
-data class UserDto(
-    val id: String,
-    val email: String,
-    val name: String,
-    val role: String,
-)
-
 // ── Device ────────────────────────────────────────────────────
 
 data class RegisterDeviceRequest(
@@ -45,7 +21,6 @@ data class DeviceResponse(
     val brand: String,
     val model: String,
     val androidVersion: String,
-    val parentId: String,
     val status: String,
 )
 

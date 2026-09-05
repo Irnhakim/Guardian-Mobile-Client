@@ -47,8 +47,14 @@ class LocationForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        try {
+            startForeground(NOTIFICATION_ID, buildNotification())
+        } catch (e: Exception) {
+            android.util.Log.e("LocationService", "startForeground failed", e)
+            stopSelf()
+            return
+        }
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-        startForeground(NOTIFICATION_ID, buildNotification())
         startLocationUpdates()
         startAppBlockingMonitor()
 
@@ -66,7 +72,7 @@ class LocationForegroundService : Service() {
 
         // Initialize Socket connection
         serviceScope.launch {
-            val serverUrl = preferences.getServerUrlSync() ?: return@launch
+            val serverUrl = preferences.getServerUrlSync() ?: id.irnhakim.guardian.BuildConfig.API_BASE_URL
             val deviceId = preferences.getServerDeviceIdSync() ?: return@launch
             socketManager = GuardianSocketManager(this@LocationForegroundService, serverUrl, deviceId, preferences, api)
             socketManager?.connect()
@@ -195,7 +201,25 @@ class LocationForegroundService : Service() {
         private const val NOTIFICATION_ID = 1001
 
         fun start(context: Context) {
-            context.startForegroundService(Intent(context, LocationForegroundService::class.java))
+            val hasLocation = androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+            if (!hasLocation) {
+                android.util.Log.w("LocationService", "Skipping LocationForegroundService: location permission not granted")
+                return
+            }
+
+            try {
+                context.startForegroundService(Intent(context, LocationForegroundService::class.java))
+            } catch (e: Exception) {
+                android.util.Log.e("LocationService", "Failed to start service", e)
+            }
         }
 
         fun stop(context: Context) {

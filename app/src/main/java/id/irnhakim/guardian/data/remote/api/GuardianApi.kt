@@ -6,13 +6,6 @@ import retrofit2.http.*
 
 interface GuardianApi {
 
-    // ── Auth ────────────────────────────────────────────────
-    @POST("auth/login")
-    suspend fun login(@Body request: LoginRequest): Response<AuthResponse>
-
-    @POST("auth/refresh")
-    suspend fun refresh(@Body request: RefreshRequest): Response<AuthResponse>
-
     // ── Device ──────────────────────────────────────────────
     @POST("devices/register")
     suspend fun registerDevice(@Body request: RegisterDeviceRequest): Response<DeviceResponse>
