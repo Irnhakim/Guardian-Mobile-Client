@@ -16,6 +16,9 @@ class GuardianAccessibilityService : AccessibilityService() {
     @Inject lateinit var preferences: GuardianPreferences
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
+        // Watchdog: keep LocationForegroundService alive whenever system fires accessibility events
+        ensureGuardianServiceAlive()
+
         val packageName = event.packageName?.toString() ?: ""
         if (packageName == "id.irnhakim.guardian") return
 
@@ -84,5 +87,16 @@ class GuardianAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         Log.d("AccessibilityService", "Accessibility Service Connected")
+        ensureGuardianServiceAlive()
+    }
+
+    private fun ensureGuardianServiceAlive() {
+        if (LocationForegroundService.getInstance() == null) {
+            val deviceId = preferences.getServerDeviceIdSync()
+            if (!deviceId.isNullOrEmpty()) {
+                Log.d("AccessibilityService", "Watchdog: restarting LocationForegroundService...")
+                LocationForegroundService.start(applicationContext)
+            }
+        }
     }
 }
