@@ -203,16 +203,18 @@ class GuardianSocketManager(
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                 val today = dateFormat.format(Date())
 
-                val usages = stats
-                    .filter { (_, stat) -> stat.totalTimeInForeground > 0 }
-                    .map { (pkgName, stat) ->
+                val usages = stats.entries
+                    .filter { it.value.totalTimeInForeground > 0 }
+                    .map { entry ->
+                        val pkgName = entry.key
+                        val stat = entry.value
                         val appLabel = try {
                             val appInfo = context.packageManager.getApplicationInfo(pkgName, 0)
                             context.packageManager.getApplicationLabel(appInfo).toString()
                         } catch (e: Exception) {
                             pkgName
                         }
-                        AppUsageItemDto(
+                        AppUsageDto(
                             packageName = pkgName,
                             appName = appLabel,
                             usageMs = stat.totalTimeInForeground,
