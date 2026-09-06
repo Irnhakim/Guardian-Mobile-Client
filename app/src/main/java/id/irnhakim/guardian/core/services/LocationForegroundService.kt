@@ -168,7 +168,7 @@ class LocationForegroundService : Service() {
         }
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("Guardian Active")
-            .setContentText("Monitoring device location")
+            .setContentText("App Running In Background")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)

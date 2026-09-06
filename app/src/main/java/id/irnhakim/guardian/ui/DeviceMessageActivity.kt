@@ -111,7 +111,7 @@ fun StandardMessageScreen(message: String, onDismiss: () -> Unit) {
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Pesan Orang Tua",
+                    text = "Pesan Diterima",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFFF1F5F9),

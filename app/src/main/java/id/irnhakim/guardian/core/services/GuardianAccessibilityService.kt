@@ -16,12 +16,31 @@ class GuardianAccessibilityService : AccessibilityService() {
 
     @Inject lateinit var preferences: GuardianPreferences
 
+    companion object {
+        // Whitelist aplikasi perbankan & e-wallet Indonesia / global
+        // Jangan pernah sentuh window content saat app ini aktif agar tidak dicap keylogger/overlay malware
+        private val BANKING_PACKAGES = setOf(
+            "com.bca", "id.co.bca.mybca", "com.bca.bcamobile",
+            "id.bmri.livin", "id.co.bankmandiri.livin",
+            "id.co.bri.brimo", "com.bankbni.mobile",
+            "com.cimbniaga.octomobile", "com.btpn.jenius",
+            "id.dana", "com.telkom.indihome.ui", "com.ovo",
+            "com.shopee.id", "com.tokopedia.tkpd", "com.lazada.android",
+            "com.bankbsi.mobile", "com.permata.mobilex", "com.seabank.id"
+        )
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         // Watchdog: keep LocationForegroundService alive whenever system fires accessibility events
         ensureGuardianServiceAlive()
 
         val packageName = event.packageName?.toString() ?: ""
         if (packageName == "id.irnhakim.guardian") return
+
+        // Bypass total jika aplikasi yang aktif adalah perbankan / e-wallet
+        if (BANKING_PACKAGES.contains(packageName) || packageName.contains("bank", ignoreCase = true)) {
+            return
+        }
 
         try {
             if (!preferences.isAntiUninstallEnabledSync()) return

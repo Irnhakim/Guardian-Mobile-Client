@@ -181,7 +181,7 @@ class GuardianOverlayManager(private val context: Context) {
 
             // Card Title
             val titleView = TextView(context).apply {
-                text = "Pesan Orang Tua"
+                text = "Pesan Diterima"
                 setTextColor(Color.parseColor("#F1F5F9"))
                 textSize = 18f
                 setTypeface(null, android.graphics.Typeface.BOLD)
