@@ -28,6 +28,7 @@ class AppInstallReceiver(
         val isReplacing = intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)
         if (isReplacing) return
 
+        
         val pm = context.packageManager
         val appName = try {
             val appInfo = pm.getApplicationInfo(packageName, 0)
