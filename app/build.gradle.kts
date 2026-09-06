@@ -19,8 +19,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "API_BASE_URL", "\"http://192.168.1.21:3001/api/v1\"")
-        buildConfigField("String", "WS_URL", "\"http://192.168.1.21:3001\"")
+        buildConfigField("String", "API_BASE_URL", "\"https://api.irnhakim.my.id/api/v1\"")
+        buildConfigField("String", "WS_URL", "\"https://api.irnhakim.my.id\"")
     }
 
     buildTypes {
@@ -33,7 +33,6 @@ android {
             )
         }
         debug {
-            buildConfigField("String", "API_BASE_URL", "\"http://192.168.120.121:3001/api/v1\"")
         }
     }
 
