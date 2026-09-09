@@ -68,6 +68,9 @@ class GuardianSocketManager(
                 val target = data?.optString("target", "all") ?: "all"
                 Log.d("GuardianSocket", "Received force_sync command from dashboard (target: $target)!")
                 triggerSync(target)
+                // ACK back so server knows device is alive and received the command
+                val ack = args?.lastOrNull() as? io.socket.client.Ack
+                ack?.call()
             }
 
             socket?.on("device:deleted") {
