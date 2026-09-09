@@ -56,4 +56,10 @@ interface GuardianApi {
     suspend fun getApprovals(
         @Path("deviceId") deviceId: String,
     ): Response<List<AppApprovalResponse>>
+
+    @POST("devices/{deviceId}/browsing")
+    suspend fun submitBrowsingHistory(
+        @Path("deviceId") deviceId: String,
+        @Body request: id.irnhakim.guardian.data.remote.dto.BrowsingHistoryRequest,
+    ): Response<Unit>
 }

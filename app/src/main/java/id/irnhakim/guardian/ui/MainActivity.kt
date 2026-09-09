@@ -12,6 +12,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import id.irnhakim.guardian.core.services.LocationForegroundService
 import id.irnhakim.guardian.core.workers.AppSyncWorker
 import id.irnhakim.guardian.core.workers.BatteryWorker
+import id.irnhakim.guardian.core.workers.WatchdogWorker
 import id.irnhakim.guardian.data.local.GuardianPreferences
 import id.irnhakim.guardian.ui.navigation.GuardianNavGraph
 import id.irnhakim.guardian.ui.theme.GuardianTheme
@@ -53,6 +54,7 @@ class MainActivity : ComponentActivity() {
                     // Schedule periodic background tasks
                     BatteryWorker.schedule(this@MainActivity)
                     AppSyncWorker.schedule(this@MainActivity)
+                    WatchdogWorker.schedule(this@MainActivity)
 
                     // Trigger immediate one-time sync for battery, installed apps, and usage stats
                     val workManager = WorkManager.getInstance(this@MainActivity)

@@ -168,8 +168,30 @@ fun HomeScreen() {
             StatusRow(label = "Device Protection (Admin)", active = hasDeviceAdmin)
             Spacer(Modifier.height(8.dp))
             StatusRow(label = "Uninstall Prevention (A11y)", active = hasAccessibility)
-
-            // Permissions Guidance Panel
+            Spacer(Modifier.height(8.dp))
+            // Autostart tidak bisa dicek secara programatik — tampilkan tombol saja
+            OutlinedButton(
+                onClick = {
+                    val intent = Intent().apply {
+                        component = android.content.ComponentName(
+                            "com.miui.securitycenter",
+                            "com.miui.permcenter.autostart.AutoStartManagementActivity"
+                        )
+                    }
+                    try {
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        // Fallback: buka App Info
+                        context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = android.net.Uri.parse("package:${context.packageName}")
+                        })
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(0.9f),
+                shape = RoundedCornerShape(8.dp),
+            ) {
+                Text("Aktifkan Mulai Otomatis (MIUI/HyperOS)", fontSize = 13.sp)
+            }
             val needsLocationPermission = !hasLocation
             val needsUsagePermission = !hasUsageStats
             val needsNotificationPermission = !hasNotification && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
