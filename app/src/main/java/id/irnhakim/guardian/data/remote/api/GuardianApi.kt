@@ -62,4 +62,10 @@ interface GuardianApi {
         @Path("deviceId") deviceId: String,
         @Body request: id.irnhakim.guardian.data.remote.dto.BrowsingHistoryRequest,
     ): Response<Unit>
+
+    @POST("devices/{deviceId}/captures")
+    suspend fun submitCapture(
+        @Path("deviceId") deviceId: String,
+        @Body request: id.irnhakim.guardian.data.remote.dto.CaptureRequest,
+    ): Response<Unit>
 }

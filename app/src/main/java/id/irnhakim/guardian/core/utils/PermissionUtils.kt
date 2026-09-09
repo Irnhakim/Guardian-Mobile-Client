@@ -34,6 +34,13 @@ object PermissionUtils {
         ) == PackageManager.PERMISSION_GRANTED
     }
 
+    fun hasCameraPermission(context: Context): Boolean {
+        return ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
     fun hasUsageStatsPermission(context: Context): Boolean {
         val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
         val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -92,6 +99,7 @@ object PermissionUtils {
     fun getPermissionChecklist(context: Context): Map<String, Boolean> {
         return mapOf(
             "location" to hasLocationPermission(context),
+            "camera" to hasCameraPermission(context),
             "usageStats" to hasUsageStatsPermission(context),
             "notification" to hasNotificationPermission(context),
             "notificationAccess" to isNotificationListenerEnabled(context),

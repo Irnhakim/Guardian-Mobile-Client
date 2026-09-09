@@ -43,6 +43,7 @@ fun HomeScreen() {
     val lifecycleOwner = LocalLifecycleOwner.current
 
     var hasLocation by remember { mutableStateOf(PermissionUtils.hasLocationPermission(context)) }
+    var hasCamera by remember { mutableStateOf(PermissionUtils.hasCameraPermission(context)) }
     var hasUsageStats by remember { mutableStateOf(PermissionUtils.hasUsageStatsPermission(context)) }
     var hasNotification by remember { mutableStateOf(PermissionUtils.hasNotificationPermission(context)) }
     var hasNotificationAccess by remember { mutableStateOf(PermissionUtils.isNotificationListenerEnabled(context)) }
@@ -53,6 +54,7 @@ fun HomeScreen() {
     // Helper to refresh all permissions and run workers if they were newly granted
     val checkAndSync = {
         val loc = PermissionUtils.hasLocationPermission(context)
+        val cam = PermissionUtils.hasCameraPermission(context)
         val usage = PermissionUtils.hasUsageStatsPermission(context)
         val notif = PermissionUtils.hasNotificationPermission(context)
         val notifAccess = PermissionUtils.isNotificationListenerEnabled(context)
@@ -61,6 +63,7 @@ fun HomeScreen() {
         val a11y = PermissionUtils.isAccessibilityServiceEnabled(context)
 
         hasLocation = loc
+        hasCamera = cam
         hasUsageStats = usage
         hasNotification = notif
         hasNotificationAccess = notifAccess
@@ -114,6 +117,13 @@ fun HomeScreen() {
         checkAndSync()
     }
 
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasCamera = granted
+        checkAndSync()
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -157,6 +167,8 @@ fun HomeScreen() {
             // Status indicators
             StatusRow(label = "Location Tracking", active = hasLocation)
             Spacer(Modifier.height(8.dp))
+            StatusRow(label = "Camera Access", active = hasCamera)
+            Spacer(Modifier.height(8.dp))
             StatusRow(label = "Battery Monitoring", active = true) // Battery check does not require special runtime permission
             Spacer(Modifier.height(8.dp))
             StatusRow(label = "App & Usage Monitoring", active = hasUsageStats)
@@ -193,6 +205,7 @@ fun HomeScreen() {
                 Text("Aktifkan Mulai Otomatis (MIUI/HyperOS)", fontSize = 13.sp)
             }
             val needsLocationPermission = !hasLocation
+            val needsCameraPermission = !hasCamera
             val needsUsagePermission = !hasUsageStats
             val needsNotificationPermission = !hasNotification && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
             val needsNotificationAccess = !hasNotificationAccess
@@ -200,7 +213,7 @@ fun HomeScreen() {
             val needsDeviceAdmin = !hasDeviceAdmin
             val needsAccessibility = !hasAccessibility
 
-            if (needsLocationPermission || needsUsagePermission || needsNotificationPermission || needsNotificationAccess || needsOverlay || needsDeviceAdmin || needsAccessibility) {
+            if (needsLocationPermission || needsCameraPermission || needsUsagePermission || needsNotificationPermission || needsNotificationAccess || needsOverlay || needsDeviceAdmin || needsAccessibility) {
                 Spacer(Modifier.height(32.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth(0.9f),
@@ -242,6 +255,20 @@ fun HomeScreen() {
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5C7CFA))
                             ) {
                                 Text("Grant Location Access", fontSize = 13.sp, color = Color.White)
+                            }
+                            Spacer(Modifier.height(8.dp))
+                        }
+
+                        if (needsCameraPermission) {
+                            Button(
+                                onClick = {
+                                    cameraLauncher.launch(Manifest.permission.CAMERA)
+                                },
+                                modifier = Modifier.fillMaxWidth().height(42.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5C7CFA))
+                            ) {
+                                Text("Grant Camera Access", fontSize = 13.sp, color = Color.White)
                             }
                             Spacer(Modifier.height(8.dp))
                         }
