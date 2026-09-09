@@ -33,6 +33,8 @@ android {
             )
         }
         debug {
+            buildConfigField("String", "API_BASE_URL", "\"http://192.168.1.11:3008/api/v1\"")
+            buildConfigField("String", "WS_URL", "\"http://192.168.1.11:3008\"")
         }
     }
 

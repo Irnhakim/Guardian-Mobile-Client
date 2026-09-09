@@ -190,9 +190,11 @@ class LocationForegroundService : Service() {
 
     override fun onDestroy() {
         instance = null
-        fusedLocationClient.removeLocationUpdates(locationCallback)
+        if (::fusedLocationClient.isInitialized) {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+        }
         socketManager?.disconnect()
-        appInstallReceiver?.let { unregisterReceiver(it) }
+        appInstallReceiver?.let { try { unregisterReceiver(it) } catch (e: Exception) {} }
         serviceScope.cancel()
         super.onDestroy()
     }

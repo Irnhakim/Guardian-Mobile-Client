@@ -44,7 +44,7 @@ class GuardianSocketManager(
             val options = IO.Options().apply {
                 forceNew = true
                 reconnection = true
-                reconnectionAttempts = 10
+                reconnectionAttempts = Int.MAX_VALUE
                 reconnectionDelay = 2000L
                 reconnectionDelayMax = 30000L
                 randomizationFactor = 0.5
